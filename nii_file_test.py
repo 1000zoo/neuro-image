@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 LESION_PATH = "/Users/1000zoo/Documents/crps_data/crps/lesion/ROI_C16_FLAIR.nii"
-TRACK_PATH = "/Users/1000zoo/Documents/crps_data/crps/rois_tracts_bin/tract_1.nii.gz"
+TRACK_PATH = "/Users/1000zoo/Documents/crps_data/tract_11.nii.gz"
 OVERLAP_PATH = "/Users/1000zoo/Documents/crps_data/crps/overlap_results/C02/overlap_tract_1.nii.gz"
+ATLAS_PATH = "/Users/1000zoo/Documents/crps_data/JHU-ICBM-tracts-maxprob-thr25-2mm.nii.gz"
 
 def non_zero_elem(arr):
     return len(arr[arr>0.0])
@@ -42,25 +43,38 @@ def plot_nii(nii):
     print(len(x))
     print(len(y))
     print(len(z))
+    _max = max(max(x), max(y), max(z))
+    _min = min(min(x), min(y), min(z))
+    print(_max, _min)
+    te = 10
+    sma = _min - te
+    big = _max + te
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     ax.scatter(x, y, z, linewidth=0)
+    ax.set_xlim([sma, big])
+    ax.set_ylim([sma, big])
+    ax.set_zlim([sma, big])
 
-    from matplotlib import animation
+    plt.show()
 
-    def animate(i):
-        ax.view_init(elev=30., azim=i)
-        return fig,
+    # from matplotlib import animation
 
-    ani = animation.FuncAnimation(fig, animate, frames=360, interval=20, blit=True)
-    ani.save("c16_flair.gif", fps=30)
+    # def animate(i):
+    #     ax.view_init(elev=30., azim=i)
+    #     return fig,
+
+    # ani = animation.FuncAnimation(fig, animate, frames=360, interval=20, blit=True)
+    # ani.save("track_11.gif", fps=30)
     # plt.show()
 
 
 if __name__ == "__main__":
     # plots()
-    # track = nib.load(TRACK_PATH).get_fdata()
-    # plot_nii(track)
-    lesion = nib.load(LESION_PATH).get_fdata()
-    plot_nii(lesion)
+    track = nib.load(TRACK_PATH).get_fdata()
+    plot_nii(track)
+    # lesion = nib.load(LESION_PATH).get_fdata()
+    # plot_nii(lesion)
+    # atlas = nib.load(ATLAS_PATH).get_fdata()
+    # plot_nii(atlas)
 
