@@ -20,14 +20,15 @@ class Node:
 
 class Tensor:
     def __init__(self, nii):
-        self.tensor = []
-        self.graph = []
+        self.nii = nii      # origin
+        self.tensor = []    # sparse matrix
+        self.graph = []     # nodes map
         self.XSUM, self.YSUM, self.ZSUM = 0, 0, 0
-        self.X, self.Y, self.Z = self.get_XYZ(nii)
+        self.X, self.Y, self.Z = self.get_XYZ()
         self.com = self.get_COM()
 
-    def get_XYZ(self, nii):
-        for i, x in enumerate(nii):
+    def get_XYZ(self):
+        for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
                     if z > 0.0:
