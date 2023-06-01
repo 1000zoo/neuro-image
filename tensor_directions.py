@@ -21,7 +21,7 @@ class Node:
         self.neighbors = neighbors
 
     def is_surface(self):
-        return len(self.neighbors) < 26
+        return len(self.neighbors) < 23
     
     def to_xyz(self):
         return (self.x, self.y, self.z)
@@ -80,18 +80,6 @@ class Tensor:
 
         plt.show()
         plt.close()
-
-    def print_mri(self, surface=False):
-        nii = self.surface if surface else self.tensor
-
-        for plane in nii:
-            print("="*101)
-            for line in plane:
-                for dot in line:
-                    print(dot, end="")
-                print()
-            print()
-
 
     def get_XYZ(self):
         for i, x in enumerate(self.nii):
