@@ -1,3 +1,4 @@
 *.gif
 test.py
 rois_tracts_bin/
++__pycache__/
