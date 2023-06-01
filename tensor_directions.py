@@ -12,14 +12,14 @@ class Node:
         self.x = x
         self.y = y
         self.z = z
-        self.neightbors = self.all_neighbor()
-        self.n_n = len(self.neightbors)
+        self.neighbors = self.all_neighbor()
+        self.n_n = len(self.neighbors)
 
     def __str__(self):
         return f"({self.x}, {self.y}, {self.z})"
 
     def set_neighbor(self, neighbors):
-        self.neightbors = neighbors
+        self.neighbors = neighbors
 
     def all_neighbor(self):
         return []
@@ -36,6 +36,7 @@ class Tensor:
         self.X, self.Y, self.Z = self.get_XYZ()
         self.plimit = self.get_index_limit()
         self.com = self.get_COM()
+        self.set_connection()
 
     def __str__(self):
         res = ""
@@ -72,7 +73,7 @@ class Tensor:
     def get_surface(self):
         ...
 
-    def get_graph(self):
+    def set_connection(self):
         assert len(self.tensor) != 0
 
         for x, y, z in self.tensor:
