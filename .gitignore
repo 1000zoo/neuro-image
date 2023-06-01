@@ -1,4 +1,4 @@
 *.gif
 test.py
-rois_tracts_bin/
-+__pycache__/
+nii_test.py
+__pycache__/
