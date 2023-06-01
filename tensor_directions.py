@@ -1,31 +1,48 @@
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 __u = [-1, 0, 1]
 UNIT_VECTORS = [(i, j, k) for i in __u for j in __u for k in __u if not (i == 0 and j == 0 and k == 0)]
 
 
 class Node:
-    def __init__(self, x, y, z):
+    def __init__(self, x=-1, y=-1, z=-1):
         self.x = x
         self.y = y
         self.z = z
-        self.neightbor = self.all_neighbor()
-        self.n_n = len(self.neightbor)
+        self.neightbors = self.all_neighbor()
+        self.n_n = len(self.neightbors)
 
-    def all_neighbor():
-        pass
-    
+    def __str__(self):
+        return f"({self.x}, {self.y}, {self.z})"
+
+    def set_neighbor(self, neighbors):
+        self.neightbors = neighbors
+
+    def all_neighbor(self):
+        return []
+
+    def is_surface(self):
+        return self.n_n != 26
 
 class Tensor:
     def __init__(self, nii):
-        self.nii = nii      # origin
-        self.tensor = []    # sparse matrix
-        self.graph = []     # nodes map
-        self.XSUM, self.YSUM, self.ZSUM = 0, 0, 0
+        self.nii = nii      # origin        : 0,1 로 구성된 Tensor
+        self.tensor = []    # sparse matrix : (x, y, z)들의 집합
+        self.graph = []     # nodes map     : 점이 저장된 Node들의 집합
+        self.vnmap = defaultdict(Node)  # key: (x, y, z) val: Node(x, y, z)
         self.X, self.Y, self.Z = self.get_XYZ()
+        self.plimit = self.get_index_limit()
         self.com = self.get_COM()
+
+    def __str__(self):
+        res = ""
+        for node in self.graph:
+            res +=  f"{node}\n"
+        
+        return res
 
     def get_XYZ(self):
         for i, x in enumerate(self.nii):
@@ -35,9 +52,7 @@ class Tensor:
                         self.tensor.append((i, j, k))
                         temp = Node(i, j, k)
                         self.graph.append(temp)
-                        self.XSUM += i
-                        self.YSUM += j
-                        self.ZSUM += k
+                        self.vnmap[(i, j, k)] = temp
         
         x, y, z = [], [], []
         for ten in self.tensor:
@@ -49,8 +64,27 @@ class Tensor:
         return x, y, z
     
     def get_COM(self):
-        return self.XSUM / len(self.X), self.YSUM / len(self.Y), self.ZSUM / len(self.Z)
+        return sum(self.X) / len(self.X), sum(self.Y) / len(self.Y), sum(self.Z) / len(self.Z)
+    
+    def get_index_limit(self):
+        return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
+    
+    def get_surface(self):
+        ...
 
+    def get_graph(self):
+        assert len(self.tensor) != 0
+
+        for x, y, z in self.tensor:
+            node = self.vnmap[(x, y, z)]
+            neighbors = []
+            for i, j, k in UNIT_VECTORS:
+                dx, dy, dz = x + i, y + j, z + k
+                if (dx, dy, dz) in self.tensor:
+                    neighbor = self.vnmap[(dx, dy, dz)]
+                    neighbors.append(neighbor)
+
+            node.set_neighbor(neighbors)
 
 
 if __name__=="__main__":
