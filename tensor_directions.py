@@ -32,12 +32,15 @@ class Tensor:
         self.tensor = []    # sparse matrix : (x, y, z)들의 집합
         self.graph = []     # nodes map     : 점이 저장된 Node들의 집합
         self.vnmap = defaultdict(Node)  # key: (x, y, z) val: Node(x, y, z)
+        self.max_xyz = None
+        self.min_xyz = None
         self.X, self.Y, self.Z = self.get_XYZ()
         self.plimit = self.get_index_limit()
         self.com = self.get_COM()           # x, y, z들의 중심
         self.set_connection()               # 각 Node들의 인근 Node연결
         self.surface = self.get_surface()   # 도형의 표면 집합, -> list[Node]
         self.surf_xyz = [n.to_xyz() for n in self.surface]  # 도형의 표면 집합 -> list[(x, y, z)]
+
 
     def __str__(self):
         res = ""
@@ -70,10 +73,14 @@ class Tensor:
 
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
+        maxx, maxy, maxz = self.max_xyz
+        minx, miny, minz = self.min_xyz
 
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         ax.scatter(_X, _Y, _Z, linewidth=0)
+        ax.scatter(maxx, maxy, maxz, c='r', linewidth=0)
+        ax.scatter(minx, miny, minz, c='r', linewidth=0)
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
         ax.set_zlim([zcom - _max, zcom + _max])
@@ -82,6 +89,8 @@ class Tensor:
         plt.close()
 
     def get_XYZ(self):
+        _min = float('inf')
+        _max = -float('inf')
         for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
@@ -90,6 +99,13 @@ class Tensor:
                         temp = Node(i, j, k)
                         self.graph.append(temp)
                         self.vnmap[(i, j, k)] = temp
+
+                        if _max < i + j + k:
+                            _max = i + j + k
+                            self.max_xyz = (i, j, k)
+                        if _min > i + j + k:
+                            _min = i + j + k
+                            self.min_xyz = (i, j, k)
         
         x, y, z = [], [], []
         for ten in self.tensor:
