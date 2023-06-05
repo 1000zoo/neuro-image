@@ -1,0 +1,4 @@
+*.gif
+test.py
+nii_test.py
+__pycache__/

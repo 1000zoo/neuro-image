@@ -141,9 +141,11 @@ class Tensor:
             node.set_neighbor(neighbors)
 
 
+    
+
     # 시작점과 끝점을 알 때
     # 표면의 최단경로를 담은 list(x), list(y), list(z) 리턴
-    def short_cut(self) -> tuple(list, list, list):
+    def short_cut(self):
         start, end = self.vnmap[self.min_xyz], self.vnmap[self.max_xyz]
         print(start, end)
 
