@@ -1,7 +1,7 @@
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
-from collections import defaultdict
+from collections import defaultdict, deque
 
 __u = [-1, 0, 1]
 UNIT_VECTORS = [(i, j, k) for i in __u for j in __u for k in __u if not (i == 0 and j == 0 and k == 0)]
@@ -41,7 +41,6 @@ class Tensor:
         self.surface = self.get_surface()   # 도형의 표면 집합, -> list[Node]
         self.surf_xyz = [n.to_xyz() for n in self.surface]  # 도형의 표면 집합 -> list[(x, y, z)]
 
-
     def __str__(self):
         res = ""
         for node in self.graph:
@@ -75,12 +74,14 @@ class Tensor:
         xcom, ycom, zcom = self.com
         maxx, maxy, maxz = self.max_xyz
         minx, miny, minz = self.min_xyz
+        sx, sy, sz = self.short_cut()
 
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         ax.scatter(_X, _Y, _Z, linewidth=0)
         ax.scatter(maxx, maxy, maxz, c='r', linewidth=0)
         ax.scatter(minx, miny, minz, c='r', linewidth=0)
+        ax.scatter(sx, sy, sz, c='black', linewidth=0)
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
         ax.set_zlim([zcom - _max, zcom + _max])
@@ -138,6 +139,40 @@ class Tensor:
                     neighbors.append(neighbor)
 
             node.set_neighbor(neighbors)
+
+
+    # 시작점과 끝점을 알 때
+    # 표면의 최단경로를 담은 list(x), list(y), list(z) 리턴
+    def short_cut(self) -> tuple(list, list, list):
+        start, end = self.vnmap[self.min_xyz], self.vnmap[self.max_xyz]
+        print(start, end)
+
+        short = []
+        q = deque()
+        visited = set()
+        history = defaultdict(list)
+
+        q.append(start)
+
+        while q:
+            curr = q.popleft()
+            curr_history = history[curr]
+            curr_history.append(curr)
+            if curr == end:
+                break
+            for node in curr.neighbors:
+                if not node in visited:
+                    q.append(node)
+                    visited.add(node)
+                    history[node] = curr_history + [node]
+
+        sx, sy, sz = [], [], []
+        for n in history[end]:
+            sx.append(n.x)
+            sy.append(n.y)
+            sz.append(n.z)
+
+        return sx, sy, sz
 
 
 if __name__=="__main__":
