@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 from collections import defaultdict, deque
 from random import shuffle
@@ -7,6 +8,22 @@ from copy import copy
 
 __u = [-1, 0, 1]
 UNIT_VECTORS = [(i, j, k) for i in __u for j in __u for k in __u if not (i == 0 and j == 0 and k == 0)]
+
+
+class PointTree:
+    def __init__(self, val=-1) -> None:
+        self.val = val
+        self.children = defaultdict(Node)
+
+    def node_start_with(self, x):
+        if x not in self.children.keys():
+            return None
+        xn = self.children[x]
+        yn = (random.choice(list(xn.children.values())))
+        zn = (random.choice(list(yn.children.values())))
+
+        return xn.val, yn.val, zn.val
+    
 
 
 class Node:
@@ -58,6 +75,10 @@ class Tensor:
         self.ax = self.fig.add_subplot(projection='3d')
         self.p = p
 
+        # x 좌표로 랜덤한 포인트를 생성하기 위한 변수들
+        self.root = PointTree(val=-1)   ## root (dummy node)
+        self.set_point_tree()
+
 
     def __str__(self):
         res = ""
@@ -103,6 +124,18 @@ class Tensor:
         
         return x, y, z
 
+
+    def set_point_tree(self):
+        for x, y, z in self.tensor:
+            curr = self.root
+            if not x in curr.children.keys():
+                curr.children[x] = PointTree(x)
+            curr = curr.children[x]
+            if not y in curr.children.keys():
+                curr.children[y] = PointTree(y)
+            curr = curr.children[y]
+            if not z in curr.children.keys():
+                curr.children[z] = PointTree(z)
 
     def set_connection(self):
         assert len(self.tensor) != 0
@@ -160,6 +193,22 @@ class Tensor:
             return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
         else:
             return centers
+
+
+    def get_random_points_withX(self, interval=3):
+        xmin, xmax = min(self.X), max(self.X)
+        dx = xmax - xmin
+        ind = xmin
+
+        temp = []
+
+        while ind <= xmax:
+            if self.root.node_start_with(ind):
+                temp.append(self.root.node_start_with(ind))
+            ind += interval
+
+
+        return [x[0] for x in temp], [x[1] for x in temp], [x[2] for x in temp]
 
 
     def get_random_points(self, minimum=5):
@@ -250,7 +299,6 @@ class Tensor:
         if p:
             plt.show()
             plt.close()
-        
 
 if __name__ == "__main__":
 
