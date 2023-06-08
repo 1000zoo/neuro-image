@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import math
 
 from collections import defaultdict, deque
 from random import shuffle
@@ -75,7 +76,7 @@ class Tensor:
         self.ax = self.fig.add_subplot(projection='3d')
         self.p = p
 
-        # x 좌표로 랜덤한 포인트를 생성하기 위한 변수들
+        # x,y,z 좌표로 랜덤한 포인트를 생성하기 위한 변수들
         self.root = PointTree(val=-1)   ## root (dummy node)
         self.set_point_tree()
 
@@ -89,7 +90,7 @@ class Tensor:
     
     @staticmethod
     def get_COM(x, y, z):
-        return sum(x) / len(x), sum(y) / len(y), sum(z) / len(z)
+        return sum(x) // len(x), sum(y) // len(y), sum(z) // len(z)
 
 
     def get_index_limit(self):
@@ -102,7 +103,7 @@ class Tensor:
         for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
-                    if z > 0.0:
+                    if z != 0.0:
                         self.tensor.append((i, j, k))
                         temp = Node(i, j, k)
                         self.graph.append(temp)
@@ -155,7 +156,6 @@ class Tensor:
     def plot(self, p=True):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
-
         
         self.ax.scatter(self.X, self.Y, self.Z, linewidth=0)
         self.ax.set_xlim([xcom - _max, xcom + _max])
@@ -165,6 +165,7 @@ class Tensor:
         if p:
             plt.show()
             plt.close()
+
 
     def plot_with_centerline(self, xyz=None, p=True, color="r"):
         _max = self.plimit / 2
@@ -182,8 +183,8 @@ class Tensor:
             plt.close()
     
     def get_centerline(self, xyz=None, getXYZ=False):
-        X, Y, Z = xyz if xyz else self.get_random_points()
-        self.plot_etc(X, Y, Z)
+        X, Y, Z = xyz if xyz else self.get_random_points_alongXYZ()
+        self.plot_etc(X, Y, Z, size=2)
         centers = []
 
         for x, y, z in zip(X, Y, Z):
@@ -197,7 +198,6 @@ class Tensor:
 
     def get_random_points_withX(self, interval=3):
         xmin, xmax = min(self.X), max(self.X)
-        dx = xmax - xmin
         ind = xmin
 
         temp = []
@@ -209,6 +209,41 @@ class Tensor:
 
 
         return [x[0] for x in temp], [x[1] for x in temp], [x[2] for x in temp]
+
+
+    def get_random_points_alongXYZ(self, interval=3):
+        xmin, xmax = min(self.X), max(self.X)
+        ymin, ymax = min(self.Y), max(self.Y)
+        zmin, zmax = min(self.Z), max(self.Z)
+        dx = xmax - xmin
+        dy = ymax - ymin
+        dz = zmax - zmin
+        dmax = max(dx, dy, dz)
+
+        T = self.X if dx == dmax else self.Y if dy == dmax else self.Z
+        T = list(set(T))
+        ind = 0 if dx == dmax else 1 if dy == dmax else 2
+        _min = xmin if dx == dmax else ymin if dy == dmax else zmin
+        _max = xmax if dx == dmax else ymax if dy == dmax else zmax
+
+        random_points = []
+        i = 0
+        
+        while i < len(T):
+            temp = []
+            v = T[i]
+            i += interval
+
+            for point in self.tensor:
+                if point[ind] == v:
+                    temp.append(point)
+            
+            random_points.append(random.choice(temp))
+
+
+        return [x[0] for x in random_points], [x[1] for x in random_points], [x[2] for x in random_points]
+
+
 
 
     def get_random_points(self, minimum=5):
@@ -233,10 +268,11 @@ class Tensor:
             area = 0
             d = -1 * (i * x0 + j * y0 + k * z0)
             equation = lambda x, y, z: abs(i * x + j * y + k * z + d)
+            distance = lambda x, y, z: math.sqrt(((x-x0)**2) + (y-y0)**2 + (z-z0)**2)
 
             for x, y, z in self.tensor:
                 res = equation(x, y, z)
-                if res < 1:
+                if res < 1 and distance(x, y, z) <= 3:
                     area += 1
                     xin.append(x)
                     yin.append(y)
@@ -245,6 +281,7 @@ class Tensor:
             min_area = min(area, min_area)
 
         return self.get_COM(xin, yin, zin)
+    
 
     def short_cut(self, p=False):
         print(self.min_xyz)
@@ -286,12 +323,12 @@ class Tensor:
 
 
 
-    def plot_etc(self, x, y, z, p=False, color="black"):
+    def plot_etc(self, x, y, z, p=False, color="black", size=0):
         _max = max(max(x) - min(x), max(y) - min(y), max(z) - min(z)) + 1
         xcom, ycom, zcom = sum(x) / len(x), sum(y) / len(y), sum(z) / len(z)
         
         
-        self.ax.scatter(x, y, z, c=color, linewidth=0)
+        self.ax.scatter(x, y, z, c=color, linewidth=size)
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
         self.ax.set_zlim([zcom - _max, zcom + _max])
