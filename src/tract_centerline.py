@@ -7,25 +7,6 @@ from collections import defaultdict, deque
 from random import shuffle
 from copy import copy
 
-__u = [-1, 0, 1]
-UNIT_VECTORS = [(i, j, k) for i in __u for j in __u for k in __u if not (i == 0 and j == 0 and k == 0)]
-
-
-class PointTree:
-    def __init__(self, val=-1) -> None:
-        self.val = val
-        self.children = defaultdict(Node)
-
-    def node_start_with(self, x):
-        if x not in self.children.keys():
-            return None
-        xn = self.children[x]
-        yn = (random.choice(list(xn.children.values())))
-        zn = (random.choice(list(yn.children.values())))
-
-        return xn.val, yn.val, zn.val
-    
-
 
 class Node:
     def __init__(self, *args, **kargs) -> None:
@@ -33,8 +14,8 @@ class Node:
             self.x = args[0]
             self.y = args[1]
             self.z = args[2]
-            self.vector = (self.x, self.y, self.z)
-        
+            self.v = (self.x, self.y, self.z)
+
         elif kargs:
             self.v = kargs["v"]
             self.x = self.v[0]
@@ -45,19 +26,18 @@ class Node:
             print(args)
             print(kargs)
             assert False
-        
+
         self.neighbors = []
 
     def __str__(self) -> str:
         return f"{self.x}, {self.y}, {self.z}"
-    
 
     def set_neighbor(self, neighbors):
         self.neighbors = neighbors
 
 
 class Tensor:
-    def __init__(self, nii, direction_max=5, p=0.1) -> None:
+    def __init__(self, nii) -> None:
         self.nii = nii
         self.tensor = []
         self.graph = []
@@ -66,36 +46,28 @@ class Tensor:
         self.min_xyz = None
 
         self.X, self.Y, self.Z = self.get_XYZ()
+        self.set_connection()  # 각 Node들의 인근 Node연결
+
         # 출력을 위해 필요한 변수들
         self.plimit = self.get_index_limit()
-        self.com = self.get_COM(self.X, self.Y, self.Z)           # x, y, z들의 중심
-        self.set_connection()               # 각 Node들의 인근 Node연결
-        self.direction_max = direction_max
+        self.com = self.get_COM(self.X, self.Y, self.Z)  # x, y, z들의 중심
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(projection='3d')
-        self.p = p
-
-        # x,y,z 좌표로 랜덤한 포인트를 생성하기 위한 변수들
-        self.root = PointTree(val=-1)   ## root (dummy node)
-        self.set_point_tree()
-
 
     def __str__(self):
         res = ""
         for node in self.graph:
-            res +=  f"{node}\n"
-        
+            res += f"{node}\n"
+
         return res
-    
+
     @staticmethod
     def get_COM(x, y, z):
         return sum(x) // len(x), sum(y) // len(y), sum(z) // len(z)
 
-
     def get_index_limit(self):
         return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
-    
 
     def get_XYZ(self):
         _min = float('inf')
@@ -115,36 +87,27 @@ class Tensor:
                         if _min > i + j + k:
                             _min = i + j + k
                             self.min_xyz = (i, j, k)
-        
+
         x, y, z = [], [], []
         for ten in self.tensor:
             _x, _y, _z = ten
             x.append(_x)
             y.append(_y)
             z.append(_z)
-        
+
         return x, y, z
 
-
-    def set_point_tree(self):
-        for x, y, z in self.tensor:
-            curr = self.root
-            if not x in curr.children.keys():
-                curr.children[x] = PointTree(x)
-            curr = curr.children[x]
-            if not y in curr.children.keys():
-                curr.children[y] = PointTree(y)
-            curr = curr.children[y]
-            if not z in curr.children.keys():
-                curr.children[z] = PointTree(z)
 
     def set_connection(self):
         assert len(self.tensor) != 0
 
+        __u = [-1, 0, 1]
+        uv = [(i, j, k) for i in __u for j in __u for k in __u if not (i == 0 and j == 0 and k == 0)]
+
         for x, y, z in self.tensor:
             node = self.vnmap[(x, y, z)]
             neighbors = []
-            for i, j, k in UNIT_VECTORS:
+            for i, j, k in uv:
                 dx, dy, dz = x + i, y + j, z + k
                 if (dx, dy, dz) in self.tensor:
                     neighbor = self.vnmap[(dx, dy, dz)]
@@ -153,26 +116,27 @@ class Tensor:
             node.set_neighbor(neighbors)
 
 
-    def plot(self, p=True):
+    def plot(self, title="0", p=True):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
-        
+
         self.ax.scatter(self.X, self.Y, self.Z, linewidth=0)
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
         self.ax.set_zlim([zcom - _max, zcom + _max])
 
         if p:
+            plt.title(f"tract {title}")
             plt.show()
             plt.close()
 
 
-    def plot_with_centerline(self, xyz=None, p=True, color="r"):
+    def plot_with_centerline(self, short=True, p=True, color="r"):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
-        xc, yc, zc = self.get_centerline(xyz, True)
+        xc, yc, zc = self.get_centerline(short, True)
 
-        self.ax.scatter(xc, yc, zc, c=color, linewidth=0)
+        self.ax.scatter(xc, yc, zc, c=color, linewidth=2)
 
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
@@ -181,14 +145,26 @@ class Tensor:
         if p:
             plt.show()
             plt.close()
-    
-    def get_centerline(self, xyz=None, getXYZ=False):
-        X, Y, Z = xyz if xyz else self.get_random_points_alongXYZ()
-        self.plot_etc(X, Y, Z, size=2)
+
+
+    def get_centerline(self, short=True, getXYZ=False):
+        X, Y, Z = self.short_cut(getXYZ=True) if short else self.get_random_points_alongXYZ()
+        # self.plot_etc(X, Y, Z, size=2)
         centers = []
 
+        points = []
+
         for x, y, z in zip(X, Y, Z):
-            centers.append(self.min_area_plane_center(x, y, z))
+            points.append((x, y, z))
+
+        vectors = get_vectors(points)
+
+        for i, xyz in enumerate(zip(X, Y, Z)):
+            if i == len(X) - 1:
+                break
+            x, y, z = xyz
+            vector = vectors[i]
+            centers.append(self.min_area_plane_center(x, y, z, vector))
 
         if getXYZ:
             return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
@@ -196,96 +172,41 @@ class Tensor:
             return centers
 
 
-    def get_random_points_withX(self, interval=3):
-        xmin, xmax = min(self.X), max(self.X)
-        ind = xmin
+    def min_area_plane_center(self, x0, y0, z0, vector):
+        lin = linspace(-0.5, 0.5, 5)
+        uv = [add_vector(norm(vector), (i, j, k)) for i in lin for j in lin for k in lin]
 
-        temp = []
-
-        while ind <= xmax:
-            if self.root.node_start_with(ind):
-                temp.append(self.root.node_start_with(ind))
-            ind += interval
-
-
-        return [x[0] for x in temp], [x[1] for x in temp], [x[2] for x in temp]
-
-
-    def get_random_points_alongXYZ(self, interval=3):
-        xmin, xmax = min(self.X), max(self.X)
-        ymin, ymax = min(self.Y), max(self.Y)
-        zmin, zmax = min(self.Z), max(self.Z)
-        dx = xmax - xmin
-        dy = ymax - ymin
-        dz = zmax - zmin
-        dmax = max(dx, dy, dz)
-
-        T = self.X if dx == dmax else self.Y if dy == dmax else self.Z
-        T = list(set(T))
-        ind = 0 if dx == dmax else 1 if dy == dmax else 2
-        _min = xmin if dx == dmax else ymin if dy == dmax else zmin
-        _max = xmax if dx == dmax else ymax if dy == dmax else zmax
-
-        random_points = []
-        i = 0
-        
-        while i < len(T):
-            temp = []
-            v = T[i]
-            i += interval
-
-            for point in self.tensor:
-                if point[ind] == v:
-                    temp.append(point)
-            
-            random_points.append(random.choice(temp))
-
-
-        return [x[0] for x in random_points], [x[1] for x in random_points], [x[2] for x in random_points]
-
-
-
-
-    def get_random_points(self, minimum=5):
-        temp = copy(self.graph)
-        shuffle(temp)
-        cut = max(int(self.p * len(temp)), minimum)
-        temp = temp[:cut]
-        return [node.x for node in temp], [node.y for node in temp], [node.z for node in temp]
-    
-
-    def min_area_plane_center(self, x0, y0, z0):
-        I = (0, 1)
-        JK = (-1, 0, 1)
-        ed = range(self.direction_max)
-        uv = [(i * p, j * q, k * r) for i in I for j in JK for k in JK
-              for p in ed for q in ed for r in ed if not (i == 0 and j == 0 and k == 0)]
         uv = list(set(uv))
         xin, yin, zin = [], [], []
         min_area = float('inf')
+        min_nv = None
 
         for i, j, k in uv:
             area = 0
             d = -1 * (i * x0 + j * y0 + k * z0)
-            equation = lambda x, y, z: abs(i * x + j * y + k * z + d)
-            distance = lambda x, y, z: math.sqrt(((x-x0)**2) + (y-y0)**2 + (z-z0)**2)
+            equation = lambda _x, _y, _z: abs(i * _x + j * _y + k * _z + d)
+            distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
+            tx, ty, tz = [], [], []
 
             for x, y, z in self.tensor:
                 res = equation(x, y, z)
-                if res < 1 and distance(x, y, z) <= 3:
+                if res < 0.7 and distance(x, y, z) <= 12:
                     area += 1
-                    xin.append(x)
-                    yin.append(y)
-                    zin.append(z)
-            
-            min_area = min(area, min_area)
+                    tx.append(x)
+                    ty.append(y)
+                    tz.append(z)
+
+            if area < min_area:
+                min_area = area
+                min_nv = (i, j, k)
+                xin = tx
+                yin = ty
+                zin = tz
 
         return self.get_COM(xin, yin, zin)
-    
 
-    def short_cut(self, p=False):
-        print(self.min_xyz)
-        print(self.max_xyz)
+
+    def short_cut(self, p=False, getXYZ=False, interval=3):
         start, end = self.vnmap[self.min_xyz], self.vnmap[self.max_xyz]
 
         q = deque()
@@ -311,23 +232,65 @@ class Tensor:
             history[end] = history[last_node] + [end]
 
         sx, sy, sz = [], [], []
-        print(history[end])
-        for n in history[end]:
+
+        short_cut = []
+
+        for i in range(0, len(history[end]), interval):
+            short_cut.append(history[end][i])
+
+        for n in short_cut:
             sx.append(n.x)
             sy.append(n.y)
             sz.append(n.z)
 
-        self.plot_etc(sx, sy, sz, color="y")
+        if p:
+            self.plot_etc(sx, sy, sz, color="y")
 
-        return sx, sy, sz
+
+        if getXYZ:
+            return sx, sy, sz
+
+        else:
+            return [(node.x, node.y, node.z) for node in short_cut]
+
+
+    def get_random_points_alongXYZ(self, interval=3):
+        xmin, xmax = min(self.X), max(self.X)
+        ymin, ymax = min(self.Y), max(self.Y)
+        zmin, zmax = min(self.Z), max(self.Z)
+        dx = xmax - xmin
+        dy = ymax - ymin
+        dz = zmax - zmin
+        dmax = max(dx, dy, dz)
+
+        T = self.X if dx == dmax else self.Y if dy == dmax else self.Z
+        T = list(set(T))
+        ind = 0 if dx == dmax else 1 if dy == dmax else 2
+        _min = xmin if dx == dmax else ymin if dy == dmax else zmin
+        _max = xmax if dx == dmax else ymax if dy == dmax else zmax
+
+        random_points = []
+        i = 0
+
+        while i < len(T):
+            temp = []
+            v = T[i]
+            i += interval
+
+            for point in self.tensor:
+                if point[ind] == v:
+                    temp.append(point)
+
+            random_points.append(random.choice(temp))
+
+        return [x[0] for x in random_points], [x[1] for x in random_points], [x[2] for x in random_points]
 
 
 
     def plot_etc(self, x, y, z, p=False, color="black", size=0):
         _max = max(max(x) - min(x), max(y) - min(y), max(z) - min(z)) + 1
         xcom, ycom, zcom = sum(x) / len(x), sum(y) / len(y), sum(z) / len(z)
-        
-        
+
         self.ax.scatter(x, y, z, c=color, linewidth=size)
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
@@ -337,7 +300,49 @@ class Tensor:
             plt.show()
             plt.close()
 
-if __name__ == "__main__":
 
-    n = Node(v=(1,2,3))
+def linspace(start, end, step):
+    lin = np.linspace(start, end, step)
+    return [x for x in lin]
+
+def get_vectors(points):
+    assert len(points) > 1
+    vectors = []
+
+    for i in range(len(points) - 1):
+        p1 = points[i]
+        p2 = points[i + 1]
+        vectors.append(sub_vector(p2, p1))
+
+    return vectors
+
+
+def add_vector(t1, t2):
+    assert len(t1) == 3 and len(t2) == 3 ## (x,y,z) 형식만
+    temp = []
+
+    for o1, o2 in zip(t1, t2):
+        temp.append(o1+o2)
+
+    return tuple(temp)
+
+def sub_vector(t1, t2):
+    assert len(t1) == 3 and len(t2) == 3
+    t2 = scalar_mul(t2, -1)
+    return add_vector(t1, t2)
+def norm(v: tuple):
+    assert len(v) == 3
+    i, j, k = v
+    roots = math.sqrt(i ** 2 + j ** 2 + k ** 2)
+    if roots == 0:
+        return None
+    return i / roots, j / roots, k / roots
+
+
+def scalar_mul(v: tuple, k):
+    assert len(v) == 3
+    return k * v[0], k * v[1], k * v[2]
+
+if __name__ == "__main__":
+    n = Node(v=(1, 2, 3))
     print(n)
