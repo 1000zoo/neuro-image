@@ -7,6 +7,8 @@ from collections import defaultdict, deque
 from random import shuffle
 from copy import copy
 
+RES = 1.3
+DISMAX = 12
 
 class Node:
     def __init__(self, *args, **kargs) -> None:
@@ -36,8 +38,112 @@ class Node:
         self.neighbors = neighbors
 
 
+class SubTract:
+    def __init__(self, tract, sub_tract, overlap) -> None:
+        self.tract = Tensor(tract)
+        self.common_centerline = self.tract.centerline
+        self.sub_tract = Tensor(sub_tract, self.common_centerline)
+        self.area_ratio = defaultdict()
+        self.set_area_ratio()
+        self.min_center = self.get_min_center()
+        self.min_plane = self.get_min_area_plane()
+        self.min_tract_plane, self.min_sub_plane = self.get_min_area_plane()
+        self.overlap = Tensor(overlap, self.common_centerline)
+
+    
+    def get_min_area_plane(self):
+        next_point = self.common_centerline[self.common_centerline.index(self.min_center) + 1]
+        i, j, k = vector = sub_vector(self.min_center, next_point)
+        x0, y0, z0 = point = self.min_center
+
+        d = -1 * (i * x0 + j * y0 + k * z0)
+        eq = equation = lambda _x, _y, _z: abs(i * _x + j * _y + k * _z + d)
+        distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
+
+        tx, ty, tz = [], [], []
+        sx, sy, sz = [], [], []
+        for x, y, z in self.tract.tensor:
+            res = equation(x, y, z)
+            if res < RES and distance(x, y, z) < DISMAX:
+                tx.append(x)
+                ty.append(y)
+                tz.append(z)
+
+        
+        for x, y, z in self.sub_tract.tensor:
+            res = equation(x, y, z)
+            if res < RES and distance(x, y, z) < DISMAX:
+                sx.append(x)
+                sy.append(y)
+                sz.append(z)
+
+        return (tx, ty, tz), (sx, sy, sz)
+
+
+    def get_min_center(self):
+        _min = float('inf')
+        min_center = None
+
+        for center in self.area_ratio:
+            if _min > self.area_ratio[center]:
+                _min = self.area_ratio[center]
+                min_center = center
+        
+        return min_center
+
+
+    def set_area_ratio(self):
+        ori_areas = self.tract.cross_section_area
+        sub_areas = self.sub_tract.cross_section_area
+        
+        for center in self.common_centerline:
+            if center in sub_areas:
+                if ori_areas[center] == 0:
+                    self.area_ratio[center] = -float('inf')
+                else:
+                    self.area_ratio[center] = sub_areas[center] / ori_areas[center]
+        
+    
+    def surface(self, title):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        x = np.array(self.tract.X)
+        y = np.array(self.tract.Y)
+        z = np.array(self.tract.Z)
+
+        ax.plot_trisurf(x, y, z)
+        plt.show()
+
+
+    def plot(self, title):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        _max = self.tract.plimit / 2
+        xcom, ycom, zcom = self.tract.com
+
+        # tx, ty, tz = self.min_tract_plane
+        sx, sy, sz = self.min_sub_plane
+        # sx = np.array(sx)
+        # sy = np.array(sy)
+        # sz = np.array(sz)
+        print(sx, sy, sz)
+
+        # ax.scatter(tx, ty, tz, c="red", linewidth=2)
+        ax.scatter(sx, sy, sz, linewidth=3, alpha=0.5, color="red")
+        ax.scatter(self.sub_tract.X, self.sub_tract.Y, self.sub_tract.Z, linewidth=0, alpha=0.2)
+        # ax.scatter(self.tract.X, self.tract.Y, self.tract.Z, linewidth=0, alpha=0.15)
+        ax.scatter(self.overlap.X, self.overlap.Y, self.overlap.Z, c="orange", linewidth=0, alpha=0.5)
+
+        ax.set_xlim([xcom - _max, xcom + _max])
+        ax.set_ylim([ycom - _max, ycom + _max])
+        ax.set_zlim([zcom - _max, zcom + _max])
+        plt.title(title)
+        plt.show()
+        plt.close()
+
+
 class Tensor:
-    def __init__(self, nii) -> None:
+    def __init__(self, nii, centerline=None) -> None:
         self.nii = nii
         self.tensor = []
         self.graph = []
@@ -54,6 +160,12 @@ class Tensor:
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(projection='3d')
+        self.centerline = self.get_centerline() if not centerline else centerline
+
+        self.cross_section_area = defaultdict()
+        self.set_cross_section_areas()
+
+
 
     def __str__(self):
         res = ""
@@ -68,6 +180,14 @@ class Tensor:
 
     def get_index_limit(self):
         return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
+    
+
+    def set_cross_section_areas(self):
+        for i in range(len(self.centerline) - 1):
+            point = self.centerline[i]
+            vector = sub_vector(self.centerline[i], self.centerline[i + 1])
+            self.cross_section_area[point] = self.get_cross_section_area(point, vector)
+            
 
     def get_XYZ(self):
         _min = float('inf')
@@ -75,7 +195,7 @@ class Tensor:
         for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
-                    if z != 0.0:
+                    if z == 1.0:
                         self.tensor.append((i, j, k))
                         temp = Node(i, j, k)
                         self.graph.append(temp)
@@ -116,38 +236,48 @@ class Tensor:
             node.set_neighbor(neighbors)
 
 
-    def plot(self, title="0", p=True):
+    def plot(self, title, p=True):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
 
-        self.ax.scatter(self.X, self.Y, self.Z, linewidth=0)
+        self.ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.2)
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
         self.ax.set_zlim([zcom - _max, zcom + _max])
 
         if p:
-            plt.title(f"tract {title}")
+            plt.title(title)
             plt.show()
             plt.close()
 
 
-    def plot_with_centerline(self, short=True, p=True, color="r"):
+    def plot_with_centerline(self,title="Superior longitudinal fasciculus L", short=True, p=True, plot_plane=False, color="r", plane_color="black", plane_interval=2):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
         xc, yc, zc = self.get_centerline(short, True)
+        centerline = [(_x, _y, _z) for _x, _y, _z in zip(xc, yc, zc)]
 
         self.ax.scatter(xc, yc, zc, c=color, linewidth=2)
+
+        if plot_plane:
+            for i in range(0, len(centerline) - 1):
+                vector = sub_vector(centerline[i], centerline[i + 1])
+                x, y, z = plane = self.get_nv_plane(centerline[i], vector)
+                self.ax.scatter(x, y, z, c=plane_color, linewidth=2)
+
 
         self.ax.set_xlim([xcom - _max, xcom + _max])
         self.ax.set_ylim([ycom - _max, ycom + _max])
         self.ax.set_zlim([zcom - _max, zcom + _max])
 
+
         if p:
+            plt.title("Superior longitudinal fasciculus L")
             plt.show()
             plt.close()
 
 
-    def get_centerline(self, short=True, getXYZ=False):
+    def get_centerline(self, short=True, getXYZ=False, interval=2):
         X, Y, Z = self.short_cut(getXYZ=True) if short else self.get_random_points_alongXYZ()
         # self.plot_etc(X, Y, Z, size=2)
         centers = []
@@ -166,10 +296,16 @@ class Tensor:
             vector = vectors[i]
             centers.append(self.min_area_plane_center(x, y, z, vector))
 
+        rc = []
+        for i in range(0, len(centers), interval):
+            rc.append(centers[i])
+
+        self.centerline = rc
+
         if getXYZ:
-            return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
+            return [center[0] for center in rc], [center[1] for center in rc], [center[2] for center in rc]
         else:
-            return centers
+            return rc
 
 
     def min_area_plane_center(self, x0, y0, z0, vector):
@@ -190,7 +326,7 @@ class Tensor:
 
             for x, y, z in self.tensor:
                 res = equation(x, y, z)
-                if res < 0.7 and distance(x, y, z) <= 12:
+                if res < RES and distance(x, y, z) < DISMAX:
                     area += 1
                     tx.append(x)
                     ty.append(y)
@@ -204,6 +340,26 @@ class Tensor:
                 zin = tz
 
         return self.get_COM(xin, yin, zin)
+
+
+    def get_nv_plane(self, point, vector):
+        x0, y0, z0 = point
+        iv, jv, kv = vector
+
+        d = -1 * (iv * x0 + jv * y0 + kv * z0)
+        equation = lambda _x, _y, _z: abs(iv * _x + jv * _y + kv * _z + d)
+        distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
+        tx, ty, tz = [], [], []
+
+        for x, y, z in self.tensor:
+            res = equation(x, y, z)
+            if res < RES and distance(x, y, z) < DISMAX:
+                tx.append(x)
+                ty.append(y)
+                tz.append(z)
+
+        return tx, ty, tz
+
 
 
     def short_cut(self, p=False, getXYZ=False, interval=3):
@@ -254,7 +410,7 @@ class Tensor:
             return [(node.x, node.y, node.z) for node in short_cut]
 
 
-    def get_random_points_alongXYZ(self, interval=3):
+    def get_random_points_alongXYZ(self, interval=1):
         xmin, xmax = min(self.X), max(self.X)
         ymin, ymax = min(self.Y), max(self.Y)
         zmin, zmax = min(self.Z), max(self.Z)
@@ -300,6 +456,21 @@ class Tensor:
             plt.show()
             plt.close()
 
+    def get_cross_section_area(self, point, vector):
+        x0, y0, z0 = point
+        iv, jv, kv = vector
+        d = -1 * (iv * x0 + jv * y0 + kv * z0)
+        equation = lambda _x, _y, _z: abs(iv * _x + jv * _y + kv * _z + d)
+        distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
+        tx, ty, tz = [], [], []
+
+        area = 0
+        for x, y, z in self.tensor:
+            if equation(x, y, z) < RES and distance(x, y, z) < DISMAX:
+                area += 1
+
+        return area
+
 
 def linspace(start, end, step):
     lin = np.linspace(start, end, step)
@@ -343,6 +514,3 @@ def scalar_mul(v: tuple, k):
     assert len(v) == 3
     return k * v[0], k * v[1], k * v[2]
 
-if __name__ == "__main__":
-    n = Node(v=(1, 2, 3))
-    print(n)
