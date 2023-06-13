@@ -57,7 +57,7 @@ class SubTract:
         x0, y0, z0 = point = self.min_center
 
         d = -1 * (i * x0 + j * y0 + k * z0)
-        eq = equation = lambda _x, _y, _z: abs(i * _x + j * _y + k * _z + d)
+        equation = lambda _x, _y, _z: abs(i * _x + j * _y + k * _z + d)
         distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
 
         tx, ty, tz = [], [], []
@@ -69,7 +69,7 @@ class SubTract:
                 ty.append(y)
                 tz.append(z)
 
-        
+
         for x, y, z in self.sub_tract.tensor:
             res = equation(x, y, z)
             if res < RES and distance(x, y, z) < DISMAX:
@@ -113,6 +113,78 @@ class SubTract:
 
         ax.plot_trisurf(x, y, z)
         plt.show()
+
+    def get_voxel_configs(self, dtype, color='#FFD65DC0'):
+        if dtype == 0:      ## origin tract
+            t = self.tract        
+            voxels = self.rollback(t.X, t.Y, t.Z)
+        elif dtype == 1:    ## subtract
+            t = self.sub_tract
+            voxels = self.rollback(t.X, t.Y, t.Z)
+        elif dtype == 2:               ## overlap
+            t = self.overlap
+            voxels = self.rollback(t.X, t.Y, t.Z)
+        elif dtype == 3:                ## centerline
+            x, y, z = pointlist_to_xyz(self.common_centerline)
+            voxels = self.rollback(x, y, z)
+        else:                           ## cross plane
+            x, y, z = self.min_sub_plane
+            voxels = self.rollback(x, y, z)
+
+        facecolors = np.where(voxels, color, "#7A88CCC0")
+        
+        filled_2 = explode(voxels)
+        fcolors_2 = explode(facecolors)
+
+        x, y, z = np.indices(np.array(filled_2.shape) + 1).astype(float) // 2
+        x[0::2, :, :] += 0.05
+        y[:, 0::2, :] += 0.05
+        z[:, :, 0::2] += 0.05
+        x[1::2, :, :] += 0.95
+        y[:, 1::2, :] += 0.95
+        z[:, :, 1::2] += 0.95
+
+        return (x, y, z), filled_2, fcolors_2
+
+    def voxel_plot(self):
+        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+
+        ## sub tract
+        points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=1, color=("#46AAFF")) # 푸른색  
+        x, y, z = points
+
+        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.05)
+        
+        ## over tract
+        points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=2, color=("#FFAF0A")) # 노랑 주황 사이
+        x, y, z = points
+
+        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.05)
+        
+        # cross area
+        points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=3, color=("#CD0000")) # 빨간색
+        x, y, z = points
+
+        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.65)
+        x, y, z = self.min_sub_plane
+        ax.scatter(x, y, z, linewidths=4, c="r")
+        xcom, ycom, zcom = self.tract.com
+
+        _max = self.tract.plimit / 2
+        ax.set_xlim([xcom - _max, xcom + _max])
+        ax.set_ylim([ycom - _max, ycom + _max])
+        ax.set_zlim([zcom - _max, zcom + _max])
+        plt.show()
+
+
+    def rollback(self, x, y, z):
+        temp = np.array(self.tract.nii)
+        nii = np.zeros(temp.shape, dtype=bool)
+
+        for i, j, k in zip(x, y, z):
+            nii[i][j][k] = True
+
+        return nii
 
 
     def plot(self, title):
@@ -173,6 +245,43 @@ class Tensor:
             res += f"{node}\n"
 
         return res
+    
+    def origin_voxel_plot(self, title="title"):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        tracts = self.rollback(self.X, self.Y, self.Z)
+        facecolors = np.where(tracts, '#FFD65DC0', '#7A88CCC0')
+        
+        filled_2 = explode(tracts)
+        fcolors_2 = explode(facecolors)
+
+        x, y, z = np.indices(np.array(filled_2.shape) + 1).astype(float) // 2
+        x[0::2, :, :] += 0.05
+        y[:, 0::2, :] += 0.05
+        z[:, :, 0::2] += 0.05
+        x[1::2, :, :] += 0.95
+        y[:, 1::2, :] += 0.95
+        z[:, :, 1::2] += 0.95
+
+        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.35)
+        
+        xcom, ycom, zcom = self.tract.com
+
+        _max = self.tract.plimit / 2
+        ax.set_xlim([xcom - _max, xcom + _max])
+        ax.set_ylim([ycom - _max, ycom + _max])
+        ax.set_zlim([zcom - _max, zcom + _max])
+        plt.show()
+
+
+    def rollback(self, x, y, z):
+        temp = np.array(self.tensor)
+        nii = np.zeros(temp.shape, dtype=bool)
+
+        for i, j, k in zip(x, y, z):
+            nii[i][j][k] = True
+
+        return nii
 
     @staticmethod
     def get_COM(x, y, z):
@@ -470,6 +579,23 @@ class Tensor:
                 area += 1
 
         return area
+
+
+def pointlist_to_xyz(l):
+    x, y, z = [], [], []
+    for i, j, k in l:
+        x.append(i)
+        y.append(j)
+        z.append(k)
+
+    return x, y, z
+
+
+def explode(data):
+    size = np.array(data.shape)*2
+    data_e = np.zeros(size - 1, dtype=data.dtype)
+    data_e[::2, ::2, ::2] = data
+    return data_e
 
 
 def linspace(start, end, step):
