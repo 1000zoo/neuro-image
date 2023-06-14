@@ -75,13 +75,17 @@ class Tensor:
         maxx, maxy, maxz = self.max_xyz
         minx, miny, minz = self.min_xyz
         sx, sy, sz = self.short_cut()
+        _X = np.arange(min(_X), max(_X), 1)
+        _Y = np.arange(min(_Y), max(_Y), 1)
+
+
 
         fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        ax.scatter(_X, _Y, _Z, linewidth=0)
-        ax.scatter(maxx, maxy, maxz, c='r', linewidth=0)
-        ax.scatter(minx, miny, minz, c='r', linewidth=0)
-        ax.scatter(sx, sy, sz, c='black', linewidth=0)
+        ax = fig.subplots(subplot_kw={"projection": "3d"})
+        ax.contour(_X, _Y, _Z, linewidth=0)
+        # ax.scatter(maxx, maxy, maxz, c='r', linewidth=0)
+        # ax.scatter(minx, miny, minz, c='r', linewidth=0)
+        # ax.scatter(sx, sy, sz, c='black', linewidth=0)
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
         ax.set_zlim([zcom - _max, zcom + _max])
