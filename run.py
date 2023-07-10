@@ -55,8 +55,8 @@ if __name__ == "__main__":
         print(i)
         # t = Tensor(lesion)
         subtract = SubTract(tract, st, overlap, lesion)
-        # subtract.plot()
         subtract.voxel_plot()
+        # subtract.plot()
         # # print(t.tensor)
         # # subtract.surface(tract_name[i])
 
