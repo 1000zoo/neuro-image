@@ -203,20 +203,20 @@ class SubTract:
         # x, y, z = points
         # ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.55)
         
-        # ## lesion
-        # points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=3, color=("#FF1493")) # 자홍색
-        # x, y, z = points
-        # ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.5)
+        ## lesion
+        points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=3, color=("#FF1493")) # 자홍색
+        x, y, z = points
+        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.5)
         
         # ## min cross plane
         # points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=4, color=("#CD0000")) # 빨간색
         # x, y, z = points
         # ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.5)
 
-        ## center planes
-        points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=5, color=("#78E150")) # 연초록
-        x, y, z = points
-        ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.5)
+        # ## center planes
+        # points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=5, color=("#78E150")) # 연초록
+        # x, y, z = points
+        # ax.voxels(x, y, z, filled_2, facecolors=fcolors_2, alpha=0.5)
 
         # ## overlap planes
         # points, filled_2, fcolors_2 = self.get_voxel_configs(dtype=6, color=("#CD0000")) # 빨간색
@@ -237,8 +237,8 @@ class SubTract:
         # x, y, z = self.get_cross_plane()
         # ax.plot_surface(x, y, z, color="#78EFAD", alpha=0.7)
 
-        _max = self.tract.plimit / 1.3
-        xcom, ycom, zcom = self.tract.com
+        _max = self.lesion.plimit / 1.3
+        xcom, ycom, zcom = self.lesion.com
 
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
@@ -321,11 +321,11 @@ class Tensor:
 
         self.X, self.Y, self.Z = self.get_XYZ()
         self.set_connection()  # 각 Node들의 인근 Node연결
+        self.plimit = self.get_index_limit()
+        self.com = self.get_COM(self.X, self.Y, self.Z)  # x, y, z들의 중심
 
         if is_origin:
             # 출력을 위해 필요한 변수들
-            self.plimit = self.get_index_limit()
-            self.com = self.get_COM(self.X, self.Y, self.Z)  # x, y, z들의 중심
 
             self.fig = plt.figure()
             self.ax = self.fig.subplots(subplot_kw={"projection": "3d"})
